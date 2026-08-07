@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+
 use App\Models\Transaksi;
 use Illuminate\Http\Request;
+
 
 
 class DatasetController extends Controller
@@ -20,11 +22,15 @@ class DatasetController extends Controller
 
         // ================= FILTER LAYANAN =================
 
+
         if ($request->filled('layanan')) {
+
 
             $query->where('layanan', $request->layanan);
 
+
         }
+
 
 
 
@@ -39,11 +45,13 @@ class DatasetController extends Controller
 
 
 
+
         return view('dataset.index', compact('datasets'));
 
 
 
     }
+
 
 
 
@@ -58,22 +66,31 @@ class DatasetController extends Controller
 
 
 
+
         // ================= FILTER LAYANAN =================
+
 
         if ($request->filled('layanan')) {
 
+
             $query->where('layanan', $request->layanan);
+
 
         }
 
 
 
 
+
+
         // ================= FILTER CHANNEL =================
+
 
         if ($request->filled('channel')) {
 
+
             $query->where('channel', $request->channel);
+
 
         }
 
@@ -90,7 +107,9 @@ class DatasetController extends Controller
 
 
 
-        // ================= CHANNEL SESUAI LAYANAN =================
+
+
+        // ================= LIST CHANNEL SESUAI LAYANAN =================
 
 
         $channelQuery = Transaksi::where('nama_file', $nama_file);
@@ -100,7 +119,9 @@ class DatasetController extends Controller
 
         if ($request->filled('layanan')) {
 
+
             $channelQuery->where('layanan', $request->layanan);
+
 
         }
 
@@ -118,6 +139,7 @@ class DatasetController extends Controller
 
 
 
+
         return view('transaksi.index', compact(
 
             'transaksis',
@@ -128,8 +150,8 @@ class DatasetController extends Controller
 
 
 
-    }
 
+    }
 
 
 

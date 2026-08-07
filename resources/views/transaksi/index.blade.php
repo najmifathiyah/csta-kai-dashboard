@@ -52,6 +52,7 @@
 
 
 
+
 <!-- ================= FILTER CHANNEL ================= -->
 
 
@@ -61,7 +62,17 @@
     <div class="card-body">
 
 
+
         <form method="GET">
+
+
+            {{-- Menyimpan layanan agar tidak hilang --}}
+
+            <input type="hidden"
+                   name="layanan"
+                   value="{{ request('layanan') }}">
+
+
 
 
 
@@ -80,11 +91,14 @@
 
 
 
+
                     <select name="channel"
 
                             class="form-select"
 
                             onchange="this.form.submit()">
+
+
 
 
 
@@ -99,7 +113,11 @@
 
 
 
+
+
                         @foreach($channels as $channel)
+
+
 
 
 
@@ -118,7 +136,12 @@
 
 
 
+
+
+
                         @endforeach
+
+
 
 
 
@@ -127,14 +150,19 @@
 
 
 
+
                 </div>
+
 
 
             </div>
 
 
 
+
+
         </form>
+
 
 
 
@@ -147,7 +175,10 @@
 
 
 
-<!-- ================= TABEL ================= -->
+
+
+
+<!-- ================= TABLE ================= -->
 
 
 <div class="card shadow">
@@ -156,11 +187,14 @@
     <div class="card-body">
 
 
+
         <table
 
             id="datatable"
 
             class="table table-bordered table-striped table-hover align-middle">
+
+
 
 
 
@@ -192,7 +226,9 @@
                 </tr>
 
 
+
             </thead>
+
 
 
 
@@ -201,11 +237,15 @@
 
 
 
+
             @foreach($transaksis as $transaksi)
 
 
 
+
+
                 <tr>
+
 
 
                     <td>
@@ -280,7 +320,10 @@
 
 
 
+
                 </tr>
+
+
 
 
 
@@ -289,7 +332,9 @@
 
 
 
+
             </tbody>
+
 
 
 
@@ -304,7 +349,10 @@
 
 
 
+
+
 @endsection
+
 
 
 
@@ -322,8 +370,8 @@ $(document).ready(function(){
     $('#datatable').DataTable();
 
 
-
 });
+
 
 
 </script>
