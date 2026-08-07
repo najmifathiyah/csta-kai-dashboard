@@ -17,7 +17,7 @@
             </h2>
 
             <small class="text-muted">
-    PT KAI Services
+    Unit CSTA KAI
 </small>
 <div class="mb-4">
 
