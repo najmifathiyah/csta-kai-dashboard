@@ -63,12 +63,22 @@ class DashboardController extends Controller
             ->distinct()
             ->orderBy('tipe_layanan')
             ->pluck('tipe_layanan');
+// ================= CHANNEL SESUAI LAYANAN =================
 
-        $channels = Transaksi::select('channel')
-            ->distinct()
-            ->orderBy('channel')
-            ->pluck('channel');
+$channelQuery = Transaksi::query();
 
+if ($request->filled('layanan')) {
+
+    $channelQuery->where('layanan', $request->layanan);
+
+}
+
+
+$channels = $channelQuery
+    ->select('channel')
+    ->distinct()
+    ->orderBy('channel')
+    ->pluck('channel');
         // ================= TREND =================
 
         $trendChart = (clone $query)
