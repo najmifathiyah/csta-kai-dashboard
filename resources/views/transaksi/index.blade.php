@@ -53,7 +53,7 @@
 
 
 
-<!-- ================= FILTER CHANNEL ================= -->
+<!-- ================= FILTER TRANSAKSI ================= -->
 
 
 <div class="card shadow-sm mb-4">
@@ -66,17 +66,89 @@
         <form method="GET">
 
 
-            {{-- Menyimpan layanan agar tidak hilang --}}
-
-            <input type="hidden"
-                   name="layanan"
-                   value="{{ request('layanan') }}">
-
-
-
-
-
             <div class="row">
+
+
+                <!-- ================= LAYANAN ================= -->
+
+
+                <div class="col-md-4">
+
+
+                    <label class="fw-bold mb-2">
+
+                        Pilih Layanan
+
+                    </label>
+
+
+
+
+
+                    <select name="layanan"
+
+                            class="form-select"
+
+                            onchange="this.form.submit()">
+
+
+
+
+
+                        <option value="">
+
+
+                            Semua Layanan
+
+
+                        </option>
+
+
+
+
+
+
+                        @foreach($layanans as $layanan)
+
+
+
+
+
+                        <option value="{{ $layanan }}"
+
+
+                        {{ request('layanan') == $layanan ? 'selected' : '' }}>
+
+
+
+                            {{ $layanan }}
+
+
+
+                        </option>
+
+
+
+
+
+
+                        @endforeach
+
+
+
+
+
+
+                    </select>
+
+
+
+
+                </div>
+
+
+
+                <!-- ================= CHANNEL ================= -->
 
 
                 <div class="col-md-4">

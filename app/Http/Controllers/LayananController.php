@@ -5,17 +5,37 @@ namespace App\Http\Controllers;
 use App\Models\Transaksi;
 use Illuminate\Http\Request;
 
-class DashboardController extends Controller
+class LayananController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, $layanan)
     {
+        /*
+        |--------------------------------------------------------------------------
+        | JUDUL HALAMAN
+        |--------------------------------------------------------------------------
+        */
+
+        $judul = 'Dashboard ' . $layanan;
+
+
         /*
         |--------------------------------------------------------------------------
         | QUERY UTAMA
         |--------------------------------------------------------------------------
+        |
+        | Setiap halaman layanan hanya mengambil data
+        | sesuai layanan yang dipilih dari sidebar.
+        |
+        | Contoh:
+        |
+        | /layanan/Tiket KAI
+        |       ↓
+        | layanan = Tiket KAI
+        |
         */
 
-        $query = Transaksi::query();
+        $query = Transaksi::query()
+            ->where('layanan', $layanan);
 
 
         /*
@@ -30,7 +50,6 @@ class DashboardController extends Controller
                 'periode',
                 $request->tahun
             );
-
         }
 
 
@@ -46,23 +65,6 @@ class DashboardController extends Controller
                 'periode',
                 $request->bulan
             );
-
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | FILTER LAYANAN
-        |--------------------------------------------------------------------------
-        */
-
-        if ($request->filled('layanan')) {
-
-            $query->where(
-                'layanan',
-                $request->layanan
-            );
-
         }
 
 
@@ -78,7 +80,6 @@ class DashboardController extends Controller
                 'tipe_layanan',
                 $request->tipe_layanan
             );
-
         }
 
 
@@ -94,7 +95,6 @@ class DashboardController extends Controller
                 'channel',
                 $request->channel
             );
-
         }
 
 
@@ -122,98 +122,20 @@ class DashboardController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | GROWTH
-        |--------------------------------------------------------------------------
-        |
-        | Growth dihitung berdasarkan bulan terakhir dan bulan sebelumnya
-        | dari data yang tersedia.
-        |
-        */
-
-        $bulanTerakhir = (clone $query)
-            ->selectRaw("
-                YEAR(periode) as tahun,
-                MONTH(periode) as bulan
-            ")
-            ->whereNotNull('periode')
-            ->groupBy('tahun', 'bulan')
-            ->orderByDesc('tahun')
-            ->orderByDesc('bulan')
-            ->first();
-
-
-        $growth = 0;
-
-
-        if ($bulanTerakhir) {
-
-            $tahunSekarang = $bulanTerakhir->tahun;
-            $bulanSekarang = $bulanTerakhir->bulan;
-
-
-            $tanggalSekarang = sprintf(
-                '%04d-%02d-01',
-                $tahunSekarang,
-                $bulanSekarang
-            );
-
-
-            $tanggalLalu = date(
-                'Y-m-01',
-                strtotime($tanggalSekarang . ' -1 month')
-            );
-
-
-            $transaksiSekarang = (clone $query)
-                ->whereYear(
-                    'periode',
-                    date('Y', strtotime($tanggalSekarang))
-                )
-                ->whereMonth(
-                    'periode',
-                    date('m', strtotime($tanggalSekarang))
-                )
-                ->sum('transaksi');
-
-
-            $transaksiLalu = (clone $query)
-                ->whereYear(
-                    'periode',
-                    date('Y', strtotime($tanggalLalu))
-                )
-                ->whereMonth(
-                    'periode',
-                    date('m', strtotime($tanggalLalu))
-                )
-                ->sum('transaksi');
-
-
-            if ($transaksiLalu > 0) {
-
-                $growth =
-                    (
-                        ($transaksiSekarang - $transaksiLalu)
-                        / $transaksiLalu
-                    ) * 100;
-
-            }
-
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
         | DATA TRANSAKSI
         |--------------------------------------------------------------------------
         |
-        | Tidak lagi menggunakan $recentTransaksi.
-        | Semua data bisa dilihat menggunakan pagination.
+        | Menggunakan pagination supaya seluruh data tetap bisa
+        | dilihat, bukan hanya 10 data terbaru.
         |
         */
 
         $transaksiData = (clone $query)
+
             ->orderByDesc('periode')
+
             ->paginate(10)
+
             ->withQueryString();
 
 
@@ -221,11 +143,21 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         | DROPDOWN TAHUN
         |--------------------------------------------------------------------------
+        |
+        | Hanya tahun yang memang tersedia pada layanan tersebut.
+        |
         */
 
         $tahuns = Transaksi::query()
 
-            ->whereNotNull('periode')
+            ->where(
+                'layanan',
+                $layanan
+            )
+
+            ->whereNotNull(
+                'periode'
+            )
 
             ->selectRaw(
                 'YEAR(periode) as tahun'
@@ -240,45 +172,24 @@ class DashboardController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | DROPDOWN LAYANAN
-        |--------------------------------------------------------------------------
-        */
-
-        $layanans = Transaksi::query()
-
-            ->whereNotNull('layanan')
-
-            ->where(
-                'layanan',
-                '!=',
-                ''
-            )
-
-            ->select('layanan')
-
-            ->distinct()
-
-            ->orderBy('layanan')
-
-            ->pluck('layanan');
-
-
-        /*
-        |--------------------------------------------------------------------------
         | DROPDOWN TIPE LAYANAN
         |--------------------------------------------------------------------------
         |
-        | TAMBAHAN:
-        | Jika Layanan dipilih, maka Tipe Layanan hanya mengambil
-        | tipe layanan yang memang berada di dalam layanan tersebut.
-        |
-        | Jika Layanan = Semua, maka semua Tipe Layanan tetap muncul.
+        | Hanya tipe layanan yang berada di dalam layanan
+        | yang sedang dibuka.
         |
         */
 
         $tipeQuery = Transaksi::query()
 
-            ->whereNotNull('tipe_layanan')
+            ->where(
+                'layanan',
+                $layanan
+            )
+
+            ->whereNotNull(
+                'tipe_layanan'
+            )
 
             ->where(
                 'tipe_layanan',
@@ -287,25 +198,51 @@ class DashboardController extends Controller
             );
 
 
-        if ($request->filled('layanan')) {
+        /*
+        |--------------------------------------------------------------------------
+        | JIKA TAHUN DIPILIH
+        |--------------------------------------------------------------------------
+        */
 
-            $tipeQuery->where(
-                'layanan',
-                $request->layanan
+        if ($request->filled('tahun')) {
+
+            $tipeQuery->whereYear(
+                'periode',
+                $request->tahun
             );
+        }
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | JIKA BULAN DIPILIH
+        |--------------------------------------------------------------------------
+        */
+
+        if ($request->filled('bulan')) {
+
+            $tipeQuery->whereMonth(
+                'periode',
+                $request->bulan
+            );
         }
 
 
         $tipes = $tipeQuery
 
-            ->select('tipe_layanan')
+            ->select(
+                'tipe_layanan'
+            )
 
             ->distinct()
 
-            ->orderBy('tipe_layanan')
+            ->orderBy(
+                'tipe_layanan'
+            )
 
-            ->pluck('tipe_layanan');
+            ->pluck(
+                'tipe_layanan'
+            );
 
 
         /*
@@ -313,13 +250,20 @@ class DashboardController extends Controller
         | DROPDOWN CHANNEL
         |--------------------------------------------------------------------------
         |
-        | Jika Layanan dipilih, channel akan mengikuti layanan tersebut.
+        | Channel mengikuti layanan dan tipe layanan yang dipilih.
         |
         */
 
         $channelQuery = Transaksi::query()
 
-            ->whereNotNull('channel')
+            ->where(
+                'layanan',
+                $layanan
+            )
+
+            ->whereNotNull(
+                'channel'
+            )
 
             ->where(
                 'channel',
@@ -328,15 +272,41 @@ class DashboardController extends Controller
             );
 
 
-        if ($request->filled('layanan')) {
+        /*
+        |--------------------------------------------------------------------------
+        | FILTER TAHUN UNTUK CHANNEL
+        |--------------------------------------------------------------------------
+        */
 
-            $channelQuery->where(
-                'layanan',
-                $request->layanan
+        if ($request->filled('tahun')) {
+
+            $channelQuery->whereYear(
+                'periode',
+                $request->tahun
             );
-
         }
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | FILTER BULAN UNTUK CHANNEL
+        |--------------------------------------------------------------------------
+        */
+
+        if ($request->filled('bulan')) {
+
+            $channelQuery->whereMonth(
+                'periode',
+                $request->bulan
+            );
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | FILTER TIPE UNTUK CHANNEL
+        |--------------------------------------------------------------------------
+        */
 
         if ($request->filled('tipe_layanan')) {
 
@@ -344,19 +314,24 @@ class DashboardController extends Controller
                 'tipe_layanan',
                 $request->tipe_layanan
             );
-
         }
 
 
         $channels = $channelQuery
 
-            ->select('channel')
+            ->select(
+                'channel'
+            )
 
             ->distinct()
 
-            ->orderBy('channel')
+            ->orderBy(
+                'channel'
+            )
 
-            ->pluck('channel');
+            ->pluck(
+                'channel'
+            );
 
 
         /*
@@ -367,20 +342,22 @@ class DashboardController extends Controller
 
         $trendChart = (clone $query)
 
-            ->whereNotNull('periode')
+            ->whereNotNull(
+                'periode'
+            )
 
             ->selectRaw("
                 DATE_FORMAT(
                     periode,
                     '%Y-%m'
-                ) as urut,
+                ) AS urut,
 
                 DATE_FORMAT(
                     periode,
                     '%b %Y'
-                ) as bulan,
+                ) AS bulan,
 
-                SUM(transaksi) as total
+                SUM(transaksi) AS total
             ")
 
             ->groupBy(
@@ -388,7 +365,9 @@ class DashboardController extends Controller
                 'bulan'
             )
 
-            ->orderBy('urut')
+            ->orderBy(
+                'urut'
+            )
 
             ->get();
 
@@ -399,72 +378,24 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $channelData = (clone $query)
+        $channelChart = (clone $query)
 
-            ->whereNotNull('channel')
+            ->whereNotNull(
+                'channel'
+            )
 
             ->selectRaw("
                 channel,
-                SUM(transaksi) as total
+                SUM(transaksi) AS total
             ")
 
-            ->groupBy('channel')
+            ->groupBy(
+                'channel'
+            )
 
-            ->orderByDesc('total')
-
-            ->get();
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | TOP CHANNEL
-        |--------------------------------------------------------------------------
-        */
-
-        $topChannel = $channelData->take(8);
-
-
-        $others = $channelData
-            ->skip(8)
-            ->sum('total');
-
-
-        if ($others > 0) {
-
-            $topChannel->push(
-                (object) [
-
-                    'channel' => 'Lainnya',
-
-                    'total' => $others
-
-                ]
-            );
-
-        }
-
-
-        $channelChart = $topChannel;
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | LAYANAN CHART
-        |--------------------------------------------------------------------------
-        */
-
-        $layananChart = (clone $query)
-
-            ->whereNotNull('layanan')
-
-            ->selectRaw("
-                layanan,
-                SUM(transaksi) as total
-            ")
-
-            ->groupBy('layanan')
-
-            ->orderByDesc('total')
+            ->orderByDesc(
+                'total'
+            )
 
             ->get();
 
@@ -477,16 +408,22 @@ class DashboardController extends Controller
 
         $tipeChart = (clone $query)
 
-            ->whereNotNull('tipe_layanan')
+            ->whereNotNull(
+                'tipe_layanan'
+            )
 
             ->selectRaw("
                 tipe_layanan,
-                SUM(transaksi) as total
+                SUM(transaksi) AS total
             ")
 
-            ->groupBy('tipe_layanan')
+            ->groupBy(
+                'tipe_layanan'
+            )
 
-            ->orderByDesc('total')
+            ->orderByDesc(
+                'total'
+            )
 
             ->limit(10)
 
@@ -495,16 +432,44 @@ class DashboardController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | VIEW
+        | RETURN VIEW
         |--------------------------------------------------------------------------
+        |
+        | File Blade yang kamu upload:
+        |
+        | resources/views/dashboard/layanan.blade.php
+        |
         */
 
         return view(
-            'dashboard.index',
+            'dashboard.layanan',
             [
 
+                /*
+                |--------------------------------------------------------------------------
+                | JUDUL
+                |--------------------------------------------------------------------------
+                */
+
                 'judul' =>
-                    'Dashboard Monitoring Transaksi Unit CSTA KAI',
+                    $judul,
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | LAYANAN AKTIF
+                |--------------------------------------------------------------------------
+                */
+
+                'layananTetap' =>
+                    $layanan,
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | KPI
+                |--------------------------------------------------------------------------
+                */
 
                 'totalTransaksi' =>
                     $totalTransaksi,
@@ -518,11 +483,12 @@ class DashboardController extends Controller
                 'totalFee' =>
                     $totalFee,
 
-                'growth' =>
-                    $growth,
 
-                'transaksiData' =>
-                    $transaksiData,
+                /*
+                |--------------------------------------------------------------------------
+                | CHART
+                |--------------------------------------------------------------------------
+                */
 
                 'trendChart' =>
                     $trendChart,
@@ -530,23 +496,34 @@ class DashboardController extends Controller
                 'channelChart' =>
                     $channelChart,
 
-                'layananChart' =>
-                    $layananChart,
-
                 'tipeChart' =>
                     $tipeChart,
 
+
+                /*
+                |--------------------------------------------------------------------------
+                | FILTER
+                |--------------------------------------------------------------------------
+                */
+
                 'tahuns' =>
                     $tahuns,
-
-                'layanans' =>
-                    $layanans,
 
                 'tipes' =>
                     $tipes,
 
                 'channels' =>
                     $channels,
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | TABLE
+                |--------------------------------------------------------------------------
+                */
+
+                'transaksiData' =>
+                    $transaksiData,
 
             ]
         );
