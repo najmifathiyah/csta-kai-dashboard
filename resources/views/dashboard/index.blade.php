@@ -350,6 +350,75 @@ body {
 
 
 /* =========================================================
+   INSIGHT OTOMATIS
+========================================================= */
+
+.insight-card {
+
+    border: none;
+
+    border-radius: 10px;
+
+    background: #FFFFFF;
+
+}
+
+
+.insight-title {
+
+    font-size: 17px;
+
+    font-weight: 600;
+
+    color: var(--text);
+
+    margin-bottom: 15px;
+
+}
+
+
+.insight-item {
+
+    display: flex;
+
+    align-items: flex-start;
+
+    gap: 10px;
+
+    padding: 10px 0;
+
+    border-bottom: 1px solid #EDF0F2;
+
+    color: #39434D;
+
+    font-size: 14px;
+
+    line-height: 1.6;
+
+}
+
+
+.insight-item:last-child {
+
+    border-bottom: none;
+
+}
+
+
+.insight-icon {
+
+    color: var(--primary);
+
+    font-size: 16px;
+
+    margin-top: 2px;
+
+    flex-shrink: 0;
+
+}
+
+
+/* =========================================================
    CARD GRAFIK
 ========================================================= */
 
@@ -1281,21 +1350,25 @@ body {
 
             <div class="card-body p-4">
 
-                <div class="kpi-label">
+                <div class="card-body p-4">
 
-                    Total Fee KAI
+                    <div class="kpi-label">
 
-                </div>
+                        Total Fee KAI
+
+                    </div>
 
 
-                <div class="kpi-value">
+                    <div class="kpi-value">
 
-                    Rp {{ number_format(
-                        $totalFee,
-                        0,
-                        ',',
-                        '.'
-                    ) }}
+                        Rp {{ number_format(
+                            $totalFee,
+                            0,
+                            ',',
+                            '.'
+                        ) }}
+
+                    </div>
 
                 </div>
 
@@ -1305,6 +1378,57 @@ body {
 
     </div>
 
+
+</div>
+
+
+<!-- =========================================================
+     INSIGHT OTOMATIS
+========================================================= -->
+
+<div class="card shadow-sm insight-card mb-4">
+
+    <div class="card-body p-4">
+
+        <div class="insight-title">
+
+            <i
+                class="bi bi-lightbulb me-2"
+                style="color: var(--primary);"
+            ></i>
+
+            Insight Otomatis
+
+        </div>
+
+
+        @forelse($insights as $insight)
+
+            <div class="insight-item">
+
+                <i
+                    class="bi bi-check-circle-fill insight-icon"
+                ></i>
+
+                <div>
+
+                    {{ $insight }}
+
+                </div>
+
+            </div>
+
+        @empty
+
+            <div class="text-muted">
+
+                Belum ada insight yang dapat ditampilkan.
+
+            </div>
+
+        @endforelse
+
+    </div>
 
 </div>
 

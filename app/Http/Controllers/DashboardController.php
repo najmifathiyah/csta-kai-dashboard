@@ -862,6 +862,206 @@ class DashboardController extends Controller
 
         /*
         |--------------------------------------------------------------------------
+        | INSIGHT OTOMATIS
+        |--------------------------------------------------------------------------
+        |
+        | TAMBAHAN SAJA
+        |
+        | Bagian ini membaca hasil query dashboard yang sama.
+        | Jadi insight otomatis tetap mengikuti:
+        |
+        | Dataset
+        | Tahun
+        | Bulan
+        | Layanan
+        | Tipe Layanan
+        | Channel
+        |
+        | Tidak ada data dari dataset lain yang ikut terbaca.
+        |
+        */
+
+
+        $insights = [];
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | INSIGHT TOTAL TRANSAKSI
+        |--------------------------------------------------------------------------
+        */
+
+        if ($totalTransaksi > 0) {
+
+            $insights[] =
+                'Total transaksi pada data yang sedang ditampilkan mencapai '
+                . number_format($totalTransaksi, 0, ',', '.')
+                . ' transaksi.';
+
+        } else {
+
+            $insights[] =
+                'Belum terdapat transaksi pada filter yang dipilih.';
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | INSIGHT CHANNEL TERTINGGI
+        |--------------------------------------------------------------------------
+        */
+
+        $insightTopChannel =
+            $channelData->first();
+
+
+        if (
+            $insightTopChannel
+            &&
+            $totalTransaksi > 0
+        ) {
+
+            $persentaseChannel =
+                (
+                    $insightTopChannel->total
+                    /
+                    $totalTransaksi
+                )
+                *
+                100;
+
+
+            $insights[] =
+                'Channel dengan transaksi tertinggi adalah "'
+                . $insightTopChannel->channel
+                . '" dengan '
+                . number_format(
+                    $insightTopChannel->total,
+                    0,
+                    ',',
+                    '.'
+                )
+                . ' transaksi atau sekitar '
+                . number_format(
+                    $persentaseChannel,
+                    1,
+                    ',',
+                    '.'
+                )
+                . '% dari total transaksi.';
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | INSIGHT LAYANAN TERTINGGI
+        |--------------------------------------------------------------------------
+        */
+
+        $insightTopLayanan =
+            $layananChart->first();
+
+
+        if ($insightTopLayanan) {
+
+            $insights[] =
+                'Layanan dengan jumlah transaksi tertinggi adalah "'
+                . $insightTopLayanan->layanan
+                . '" dengan '
+                . number_format(
+                    $insightTopLayanan->total,
+                    0,
+                    ',',
+                    '.'
+                )
+                . ' transaksi.';
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | INSIGHT PERTUMBUHAN
+        |--------------------------------------------------------------------------
+        */
+
+        if ($growth > 0) {
+
+            $insights[] =
+                'Transaksi menunjukkan pertumbuhan sebesar '
+                . number_format(
+                    $growth,
+                    1,
+                    ',',
+                    '.'
+                )
+                . '% dibandingkan bulan sebelumnya.';
+
+        } elseif ($growth < 0) {
+
+            $insights[] =
+                'Transaksi mengalami penurunan sebesar '
+                . number_format(
+                    abs($growth),
+                    1,
+                    ',',
+                    '.'
+                )
+                . '% dibandingkan bulan sebelumnya.';
+
+        } else {
+
+            if ($bulanTerakhir) {
+
+                $insights[] =
+                    'Belum terdapat perubahan transaksi dibandingkan bulan sebelumnya, atau data bulan sebelumnya tidak tersedia.';
+
+            }
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | INSIGHT NILAI TRANSAKSI
+        |--------------------------------------------------------------------------
+        */
+
+        if ($totalNilai > 0) {
+
+            $insights[] =
+                'Total nilai transaksi pada data yang sedang ditampilkan mencapai Rp '
+                . number_format(
+                    $totalNilai,
+                    0,
+                    ',',
+                    '.'
+                )
+                . '.';
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | INSIGHT DATASET
+        |--------------------------------------------------------------------------
+        */
+
+        if ($datasetAktif) {
+
+            $insights[] =
+                'Insight ini dihitung khusus dari dataset "'
+                . $datasetAktif->nama_file
+                . '" sehingga tidak tercampur dengan dataset lainnya.';
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
         | VIEW
         |--------------------------------------------------------------------------
         */
@@ -968,6 +1168,19 @@ class DashboardController extends Controller
 
                 'channels' =>
                     $channels,
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | INSIGHT OTOMATIS
+                |--------------------------------------------------------------------------
+                |
+                | TAMBAHAN SAJA
+                |
+                */
+
+                'insights' =>
+                    $insights,
 
             ]
 
