@@ -1,6 +1,8 @@
 <?php
 
+
 use Illuminate\Support\Facades\Route;
+
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DivisionController;
@@ -11,6 +13,7 @@ use App\Http\Controllers\DatasetController;
 use App\Http\Controllers\LayananController;
 
 
+
 /*
 |--------------------------------------------------------------------------
 | WEB ROUTES
@@ -18,9 +21,11 @@ use App\Http\Controllers\LayananController;
 */
 
 
+
 // ==================================================
 // DASHBOARD UTAMA
 // ==================================================
+
 
 // Halaman utama
 Route::get(
@@ -29,11 +34,13 @@ Route::get(
 )->name('dashboard.home');
 
 
+
 // Dashboard utama
 Route::get(
     '/dashboard',
     [DashboardController::class, 'index']
 )->name('dashboard');
+
 
 
 
@@ -54,11 +61,13 @@ Route::get(
 // ==================================================
 
 
+
 // Route utama halaman layanan
 Route::get(
     '/layanan/{layanan}',
     [LayananController::class, 'index']
 )->name('layanan.index');
+
 
 
 
@@ -76,9 +85,11 @@ Route::get(
 // ==================================================
 
 
+
 // ------------------------------
 // Tiket KAI
 // ------------------------------
+
 
 Route::get(
     '/dashboard/tiket-kai',
@@ -95,9 +106,11 @@ Route::get(
 
 
 
+
 // ------------------------------
 // Mitra KAI Group
 // ------------------------------
+
 
 Route::get(
     '/dashboard/mitra-kai-group',
@@ -114,9 +127,11 @@ Route::get(
 
 
 
+
 // ------------------------------
 // Mitra Non KAI Group
 // ------------------------------
+
 
 Route::get(
     '/dashboard/mitra-non-kai-group',
@@ -133,9 +148,11 @@ Route::get(
 
 
 
+
 // ==================================================
 // MASTER DIVISI
 // ==================================================
+
 
 Route::resource(
     'divisions',
@@ -145,14 +162,17 @@ Route::resource(
 
 
 
+
 // ==================================================
 // MASTER KATEGORI
 // ==================================================
+
 
 Route::resource(
     'categories',
     CategoryController::class
 );
+
 
 
 
@@ -169,11 +189,33 @@ Route::get(
 )->name('dataset.index');
 
 
+// ==================================================
+// KELUAR DARI DATASET
+// ==================================================
+//
+// ROUTE INI HARUS SEBELUM /dataset/{nama_file}
+// AGAR "keluar" TIDAK DIBACA SEBAGAI NAMA FILE.
+// ==================================================
+
+Route::get(
+    '/dataset/keluar',
+    [DatasetController::class, 'keluar']
+)->name('dataset.keluar');
+
+
 // Detail dataset berdasarkan nama file
 Route::get(
     '/dataset/{nama_file}',
     [DatasetController::class, 'show']
 )->name('dataset.show');
+
+
+// Hapus dataset
+Route::delete(
+    '/dataset/{nama_file}',
+    [DatasetController::class, 'destroy']
+)->name('dataset.destroy');
+
 
 
 
@@ -182,10 +224,12 @@ Route::get(
 // DATA TRANSAKSI
 // ==================================================
 
+
 Route::resource(
     'transaksi',
     TransaksiController::class
 );
+
 
 
 
@@ -200,6 +244,7 @@ Route::get(
     '/import',
     [ImportController::class, 'index']
 )->name('import.index');
+
 
 
 // Proses import

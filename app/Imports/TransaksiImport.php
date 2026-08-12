@@ -32,9 +32,8 @@ class TransaksiImport implements ToModel, WithHeadingRow
         | 2. DateTime
         | 3. String tanggal
         |
-        | Karena itu kita tangani semuanya.
-        |
         */
+
 
         $periode = null;
 
@@ -91,9 +90,7 @@ class TransaksiImport implements ToModel, WithHeadingRow
                     $periode = null;
 
                 }
-
             }
-
         }
 
 
@@ -105,13 +102,17 @@ class TransaksiImport implements ToModel, WithHeadingRow
 
             'periode' => $periode,
 
-            'layanan' => $row['layanan'] ?? null,
+            'layanan' =>
+                $row['layanan'] ?? null,
 
-            'tipe_layanan' => $row['tipe_layanan'] ?? null,
+            'tipe_layanan' =>
+                $row['tipe_layanan'] ?? null,
 
-            'channel' => $row['channel'] ?? null,
+            'channel' =>
+                $row['channel'] ?? null,
 
-            'transaksi' => $row['transaksi'] ?? 0,
+            'transaksi' =>
+                $row['transaksi'] ?? 0,
 
             'jumlah_pelanggan' =>
                 $row['jumlah_pelanggan'] ?? 0,
@@ -122,6 +123,7 @@ class TransaksiImport implements ToModel, WithHeadingRow
             'fee_kai' =>
                 $row['fee_kai'] ?? 0,
 
+            // Nama file tetap disimpan
             'nama_file' =>
                 $this->filename,
 

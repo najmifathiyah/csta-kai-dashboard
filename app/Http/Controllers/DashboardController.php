@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Transaksi;
+use App\Models\Dataset;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -11,11 +12,227 @@ class DashboardController extends Controller
     {
         /*
         |--------------------------------------------------------------------------
+        | DATASET AKTIF
+        |--------------------------------------------------------------------------
+        |
+        | Dashboard utama hanya membaca dataset yang berstatus aktif.
+        |
+        | Dataset yang lebih lama tetap tersimpan di database,
+        | tetapi tidak dicampurkan ke dashboard utama.
+        |
+        |
+        | TAMBAHAN:
+        |
+        | Kalau user sedang membuka dataset tertentu,
+        | maka dataset tersebut digunakan sementara.
+        |
+        | is_active TIDAK DIUBAH.
+        |
+        */
+
+
+        $datasetAktif = Dataset::query()
+            ->where('is_active', true)
+            ->latest('id')
+            ->first();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | DATASET YANG SEDANG DIBUKA
+        |--------------------------------------------------------------------------
+        |
+        | Kalau user sebelumnya klik "Lihat Data"
+        | pada dataset tertentu, nama file disimpan di session.
+        |
+        | Maka dashboard akan mengikuti dataset tersebut.
+        |
+        | Kalau tidak ada session:
+        | → Dashboard tetap menggunakan dataset aktif.
+        |
+        */
+
+
+        $datasetFile =
+            session('dataset_file');
+
+
+        if ($datasetFile) {
+
+            $datasetSession =
+                Dataset::query()
+
+                ->where(
+                    'nama_file',
+                    $datasetFile
+                )
+
+                ->first();
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | JIKA DATASET SESSION MASIH ADA
+            |--------------------------------------------------------------------------
+            |
+            | Gunakan dataset tersebut.
+            |
+            | PENTING:
+            | Tidak mengubah is_active.
+            |
+            */
+
+
+            if ($datasetSession) {
+
+                $datasetAktif =
+                    $datasetSession;
+
+            }
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | FALLBACK DATA LAMA
+        |--------------------------------------------------------------------------
+        |
+        | Bagian ini penting karena database kamu sudah memiliki data transaksi
+        | sebelum sistem "dataset aktif" dibuat.
+        |
+        | Kalau belum ada dataset aktif, kita cari nama_file transaksi terbaru
+        | lalu menjadikannya dataset aktif.
+        |
+        | Dengan begitu dashboard tidak kosong setelah sistem baru dipasang.
+        |
+        */
+
+
+        if (!$datasetAktif) {
+
+            $namaFileTerbaru = Transaksi::query()
+
+                ->whereNotNull('nama_file')
+
+                ->where(
+                    'nama_file',
+                    '!=',
+                    ''
+                )
+
+                ->latest('created_at')
+
+                ->value('nama_file');
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | JIKA DATA LAMA MEMILIKI NAMA_FILE
+            |--------------------------------------------------------------------------
+            */
+
+            if ($namaFileTerbaru) {
+
+                $jumlahData = Transaksi::query()
+
+                    ->where(
+                        'nama_file',
+                        $namaFileTerbaru
+                    )
+
+                    ->count();
+
+
+                $layanan = Transaksi::query()
+
+                    ->where(
+                        'nama_file',
+                        $namaFileTerbaru
+                    )
+
+                    ->whereNotNull('layanan')
+
+                    ->where(
+                        'layanan',
+                        '!=',
+                        ''
+                    )
+
+                    ->select('layanan')
+
+                    ->distinct()
+
+                    ->pluck('layanan');
+
+
+                if ($layanan->count() === 1) {
+
+                    $namaLayanan =
+                        $layanan->first();
+
+                } else {
+
+                    $namaLayanan =
+                        $layanan->implode(', ');
+
+                }
+
+
+                $datasetAktif = Dataset::create([
+
+                    'nama_file' =>
+                        $namaFileTerbaru,
+
+                    'layanan' =>
+                        $namaLayanan,
+
+                    'jumlah_data' =>
+                        $jumlahData,
+
+                    'is_active' =>
+                        true,
+
+                ]);
+
+            }
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
         | QUERY UTAMA
+        |--------------------------------------------------------------------------
+        |
+        | Semua angka, grafik, tabel dan filter dashboard utama
+        | menggunakan query yang sama.
+        |
+        | Perbedaannya sekarang:
+        |
+        | Dashboard hanya mengambil DATASET AKTIF
+        | atau DATASET YANG SEDANG DIBUKA.
+        |
+        */
+
+
+        $query = Transaksi::query();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | FILTER DATASET AKTIF / DATASET YANG SEDANG DIBUKA
         |--------------------------------------------------------------------------
         */
 
-        $query = Transaksi::query();
+        if ($datasetAktif) {
+
+            $query->where(
+                'nama_file',
+                $datasetAktif->nama_file
+            );
+
+        }
 
 
         /*
@@ -126,19 +343,29 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         |
         | Growth dihitung berdasarkan bulan terakhir dan bulan sebelumnya
-        | dari data yang tersedia.
+        | dari dataset aktif yang sedang digunakan.
         |
         */
 
+
         $bulanTerakhir = (clone $query)
+
             ->selectRaw("
                 YEAR(periode) as tahun,
                 MONTH(periode) as bulan
             ")
+
             ->whereNotNull('periode')
-            ->groupBy('tahun', 'bulan')
+
+            ->groupBy(
+                'tahun',
+                'bulan'
+            )
+
             ->orderByDesc('tahun')
+
             ->orderByDesc('bulan')
+
             ->first();
 
 
@@ -147,44 +374,86 @@ class DashboardController extends Controller
 
         if ($bulanTerakhir) {
 
-            $tahunSekarang = $bulanTerakhir->tahun;
-            $bulanSekarang = $bulanTerakhir->bulan;
+            $tahunSekarang =
+                $bulanTerakhir->tahun;
+
+
+            $bulanSekarang =
+                $bulanTerakhir->bulan;
 
 
             $tanggalSekarang = sprintf(
+
                 '%04d-%02d-01',
+
                 $tahunSekarang,
+
                 $bulanSekarang
+
             );
 
 
             $tanggalLalu = date(
+
                 'Y-m-01',
-                strtotime($tanggalSekarang . ' -1 month')
+
+                strtotime(
+                    $tanggalSekarang .
+                    ' -1 month'
+                )
+
             );
 
 
-            $transaksiSekarang = (clone $query)
+            $transaksiSekarang =
+                (clone $query)
+
                 ->whereYear(
                     'periode',
-                    date('Y', strtotime($tanggalSekarang))
+                    date(
+                        'Y',
+                        strtotime(
+                            $tanggalSekarang
+                        )
+                    )
                 )
+
                 ->whereMonth(
                     'periode',
-                    date('m', strtotime($tanggalSekarang))
+                    date(
+                        'm',
+                        strtotime(
+                            $tanggalSekarang
+                        )
+                    )
                 )
+
                 ->sum('transaksi');
 
 
-            $transaksiLalu = (clone $query)
+            $transaksiLalu =
+                (clone $query)
+
                 ->whereYear(
                     'periode',
-                    date('Y', strtotime($tanggalLalu))
+                    date(
+                        'Y',
+                        strtotime(
+                            $tanggalLalu
+                        )
+                    )
                 )
+
                 ->whereMonth(
                     'periode',
-                    date('m', strtotime($tanggalLalu))
+                    date(
+                        'm',
+                        strtotime(
+                            $tanggalLalu
+                        )
+                    )
                 )
+
                 ->sum('transaksi');
 
 
@@ -192,9 +461,16 @@ class DashboardController extends Controller
 
                 $growth =
                     (
-                        ($transaksiSekarang - $transaksiLalu)
-                        / $transaksiLalu
-                    ) * 100;
+                        (
+                            $transaksiSekarang
+                            -
+                            $transaksiLalu
+                        )
+                        /
+                        $transaksiLalu
+                    )
+                    *
+                    100;
 
             }
 
@@ -206,14 +482,21 @@ class DashboardController extends Controller
         | DATA TRANSAKSI
         |--------------------------------------------------------------------------
         |
-        | Tidak lagi menggunakan $recentTransaksi.
-        | Semua data bisa dilihat menggunakan pagination.
+        | Tabel transaksi dashboard juga hanya mengambil
+        | data dari dataset yang sedang digunakan.
         |
         */
 
-        $transaksiData = (clone $query)
-            ->orderByDesc('periode')
+
+        $transaksiData =
+            (clone $query)
+
+            ->orderByDesc(
+                'periode'
+            )
+
             ->paginate(10)
+
             ->withQueryString();
 
 
@@ -221,11 +504,17 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         | DROPDOWN TAHUN
         |--------------------------------------------------------------------------
+        |
+        | Tahun hanya berasal dari dataset yang sedang digunakan.
+        |
         */
 
-        $tahuns = Transaksi::query()
 
-            ->whereNotNull('periode')
+        $tahuns = (clone $query)
+
+            ->whereNotNull(
+                'periode'
+            )
 
             ->selectRaw(
                 'YEAR(periode) as tahun'
@@ -233,20 +522,30 @@ class DashboardController extends Controller
 
             ->distinct()
 
-            ->orderBy('tahun')
+            ->orderBy(
+                'tahun'
+            )
 
-            ->pluck('tahun');
+            ->pluck(
+                'tahun'
+            );
 
 
         /*
         |--------------------------------------------------------------------------
         | DROPDOWN LAYANAN
         |--------------------------------------------------------------------------
+        |
+        | Hanya layanan yang terdapat pada dataset yang sedang digunakan.
+        |
         */
 
-        $layanans = Transaksi::query()
 
-            ->whereNotNull('layanan')
+        $layanans = (clone $query)
+
+            ->whereNotNull(
+                'layanan'
+            )
 
             ->where(
                 'layanan',
@@ -254,13 +553,19 @@ class DashboardController extends Controller
                 ''
             )
 
-            ->select('layanan')
+            ->select(
+                'layanan'
+            )
 
             ->distinct()
 
-            ->orderBy('layanan')
+            ->orderBy(
+                'layanan'
+            )
 
-            ->pluck('layanan');
+            ->pluck(
+                'layanan'
+            );
 
 
         /*
@@ -268,17 +573,20 @@ class DashboardController extends Controller
         | DROPDOWN TIPE LAYANAN
         |--------------------------------------------------------------------------
         |
-        | TAMBAHAN:
-        | Jika Layanan dipilih, maka Tipe Layanan hanya mengambil
-        | tipe layanan yang memang berada di dalam layanan tersebut.
+        | Jika layanan dipilih:
+        | → hanya tipe layanan dari layanan tersebut.
         |
-        | Jika Layanan = Semua, maka semua Tipe Layanan tetap muncul.
+        | Jika layanan tidak dipilih:
+        | → semua tipe layanan dari dataset yang sedang digunakan.
         |
         */
 
-        $tipeQuery = Transaksi::query()
 
-            ->whereNotNull('tipe_layanan')
+        $tipeQuery = (clone $query)
+
+            ->whereNotNull(
+                'tipe_layanan'
+            )
 
             ->where(
                 'tipe_layanan',
@@ -299,13 +607,19 @@ class DashboardController extends Controller
 
         $tipes = $tipeQuery
 
-            ->select('tipe_layanan')
+            ->select(
+                'tipe_layanan'
+            )
 
             ->distinct()
 
-            ->orderBy('tipe_layanan')
+            ->orderBy(
+                'tipe_layanan'
+            )
 
-            ->pluck('tipe_layanan');
+            ->pluck(
+                'tipe_layanan'
+            );
 
 
         /*
@@ -313,13 +627,22 @@ class DashboardController extends Controller
         | DROPDOWN CHANNEL
         |--------------------------------------------------------------------------
         |
-        | Jika Layanan dipilih, channel akan mengikuti layanan tersebut.
+        | Channel mengikuti:
+        |
+        | Dataset yang sedang digunakan
+        |       ↓
+        | Layanan
+        |       ↓
+        | Tipe Layanan
         |
         */
 
-        $channelQuery = Transaksi::query()
 
-            ->whereNotNull('channel')
+        $channelQuery = (clone $query)
+
+            ->whereNotNull(
+                'channel'
+            )
 
             ->where(
                 'channel',
@@ -350,13 +673,19 @@ class DashboardController extends Controller
 
         $channels = $channelQuery
 
-            ->select('channel')
+            ->select(
+                'channel'
+            )
 
             ->distinct()
 
-            ->orderBy('channel')
+            ->orderBy(
+                'channel'
+            )
 
-            ->pluck('channel');
+            ->pluck(
+                'channel'
+            );
 
 
         /*
@@ -365,9 +694,12 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
+
         $trendChart = (clone $query)
 
-            ->whereNotNull('periode')
+            ->whereNotNull(
+                'periode'
+            )
 
             ->selectRaw("
                 DATE_FORMAT(
@@ -388,7 +720,9 @@ class DashboardController extends Controller
                 'bulan'
             )
 
-            ->orderBy('urut')
+            ->orderBy(
+                'urut'
+            )
 
             ->get();
 
@@ -399,18 +733,25 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
+
         $channelData = (clone $query)
 
-            ->whereNotNull('channel')
+            ->whereNotNull(
+                'channel'
+            )
 
             ->selectRaw("
                 channel,
                 SUM(transaksi) as total
             ")
 
-            ->groupBy('channel')
+            ->groupBy(
+                'channel'
+            )
 
-            ->orderByDesc('total')
+            ->orderByDesc(
+                'total'
+            )
 
             ->get();
 
@@ -421,30 +762,42 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $topChannel = $channelData->take(8);
+
+        $topChannel =
+            $channelData->take(8);
 
 
-        $others = $channelData
+        $others =
+            $channelData
+
             ->skip(8)
-            ->sum('total');
+
+            ->sum(
+                'total'
+            );
 
 
         if ($others > 0) {
 
             $topChannel->push(
+
                 (object) [
 
-                    'channel' => 'Lainnya',
+                    'channel' =>
+                        'Lainnya',
 
-                    'total' => $others
+                    'total' =>
+                        $others,
 
                 ]
+
             );
 
         }
 
 
-        $channelChart = $topChannel;
+        $channelChart =
+            $topChannel;
 
 
         /*
@@ -453,18 +806,25 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
+
         $layananChart = (clone $query)
 
-            ->whereNotNull('layanan')
+            ->whereNotNull(
+                'layanan'
+            )
 
             ->selectRaw("
                 layanan,
                 SUM(transaksi) as total
             ")
 
-            ->groupBy('layanan')
+            ->groupBy(
+                'layanan'
+            )
 
-            ->orderByDesc('total')
+            ->orderByDesc(
+                'total'
+            )
 
             ->get();
 
@@ -475,18 +835,25 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
+
         $tipeChart = (clone $query)
 
-            ->whereNotNull('tipe_layanan')
+            ->whereNotNull(
+                'tipe_layanan'
+            )
 
             ->selectRaw("
                 tipe_layanan,
                 SUM(transaksi) as total
             ")
 
-            ->groupBy('tipe_layanan')
+            ->groupBy(
+                'tipe_layanan'
+            )
 
-            ->orderByDesc('total')
+            ->orderByDesc(
+                'total'
+            )
 
             ->limit(10)
 
@@ -499,12 +866,45 @@ class DashboardController extends Controller
         |--------------------------------------------------------------------------
         */
 
+
         return view(
+
             'dashboard.index',
+
             [
+
+                /*
+                |--------------------------------------------------------------------------
+                | JUDUL
+                |--------------------------------------------------------------------------
+                */
 
                 'judul' =>
                     'Dashboard Monitoring Transaksi Unit CSTA KAI',
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | DATASET YANG SEDANG DIGUNAKAN
+                |--------------------------------------------------------------------------
+                |
+                | Kalau tidak sedang membuka file:
+                | → dataset aktif.
+                |
+                | Kalau sedang membuka file:
+                | → dataset dari session.
+                |
+                */
+
+                'datasetAktif' =>
+                    $datasetAktif,
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | KPI
+                |--------------------------------------------------------------------------
+                */
 
                 'totalTransaksi' =>
                     $totalTransaksi,
@@ -521,8 +921,22 @@ class DashboardController extends Controller
                 'growth' =>
                     $growth,
 
+
+                /*
+                |--------------------------------------------------------------------------
+                | DATA TABEL
+                |--------------------------------------------------------------------------
+                */
+
                 'transaksiData' =>
                     $transaksiData,
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | CHART
+                |--------------------------------------------------------------------------
+                */
 
                 'trendChart' =>
                     $trendChart,
@@ -535,6 +949,13 @@ class DashboardController extends Controller
 
                 'tipeChart' =>
                     $tipeChart,
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | DROPDOWN
+                |--------------------------------------------------------------------------
+                */
 
                 'tahuns' =>
                     $tahuns,
@@ -549,6 +970,7 @@ class DashboardController extends Controller
                     $channels,
 
             ]
+
         );
     }
 }

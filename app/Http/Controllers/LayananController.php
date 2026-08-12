@@ -3,19 +3,127 @@
 namespace App\Http\Controllers;
 
 use App\Models\Transaksi;
+use App\Models\Dataset;
 use Illuminate\Http\Request;
 
 class LayananController extends Controller
 {
-    public function index(Request $request, $layanan)
-    {
+    public function index(
+        Request $request,
+        $layanan
+    ) {
+
+        /*
+        |--------------------------------------------------------------------------
+        | DATASET YANG DIGUNAKAN
+        |--------------------------------------------------------------------------
+        |
+        | KONDISI 1:
+        |
+        | User sedang membuka dataset tertentu
+        | melalui tombol "Lihat Data".
+        |
+        | Maka gunakan:
+        |
+        | session('dataset_file')
+        |
+        |
+        | KONDISI 2:
+        |
+        | User tidak sedang membuka dataset tertentu.
+        |
+        | Maka gunakan:
+        |
+        | dataset yang is_active = 1
+        |
+        |
+        | PENTING:
+        |
+        | Membuka File A TIDAK mengubah is_active.
+        |
+        */
+
+
+        $datasetFile =
+            session('dataset_file');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | JIKA TIDAK SEDANG MEMBUKA DATASET
+        |--------------------------------------------------------------------------
+        |
+        | Gunakan dataset aktif.
+        |
+        */
+
+
+        if (!$datasetFile) {
+
+            $datasetAktif =
+                Dataset::query()
+
+                    ->where(
+                        'is_active',
+                        true
+                    )
+
+                    ->latest('id')
+
+                    ->first();
+
+
+            if ($datasetAktif) {
+
+                $datasetFile =
+                    $datasetAktif->nama_file;
+
+            }
+
+        }
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | DATASET SEKARANG
+        |--------------------------------------------------------------------------
+        |
+        | Digunakan untuk menampilkan informasi:
+        |
+        | 📂 Sedang membuka:
+        | nama_file
+        |
+        */
+
+
+        $datasetSekarang = null;
+
+
+        if ($datasetFile) {
+
+            $datasetSekarang =
+                Dataset::query()
+
+                    ->where(
+                        'nama_file',
+                        $datasetFile
+                    )
+
+                    ->first();
+
+        }
+
+
         /*
         |--------------------------------------------------------------------------
         | JUDUL HALAMAN
         |--------------------------------------------------------------------------
         */
 
-        $judul = 'Dashboard ' . $layanan;
+
+        $judul =
+            'Dashboard ' .
+            $layanan;
 
 
         /*
@@ -23,19 +131,44 @@ class LayananController extends Controller
         | QUERY UTAMA
         |--------------------------------------------------------------------------
         |
-        | Setiap halaman layanan hanya mengambil data
-        | sesuai layanan yang dipilih dari sidebar.
+        | FILTER PERTAMA:
         |
-        | Contoh:
+        | layanan
         |
-        | /layanan/Tiket KAI
-        |       ↓
-        | layanan = Tiket KAI
+        | FILTER KEDUA:
+        |
+        | nama_file
+        |
+        |
+        | Jadi data tidak akan tercampur.
         |
         */
 
-        $query = Transaksi::query()
-            ->where('layanan', $layanan);
+
+        $query =
+            Transaksi::query()
+
+                ->where(
+                    'layanan',
+                    $layanan
+                );
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | FILTER DATASET
+        |--------------------------------------------------------------------------
+        */
+
+
+        if ($datasetFile) {
+
+            $query->where(
+                'nama_file',
+                $datasetFile
+            );
+
+        }
 
 
         /*
@@ -44,12 +177,14 @@ class LayananController extends Controller
         |--------------------------------------------------------------------------
         */
 
+
         if ($request->filled('tahun')) {
 
             $query->whereYear(
                 'periode',
                 $request->tahun
             );
+
         }
 
 
@@ -59,12 +194,14 @@ class LayananController extends Controller
         |--------------------------------------------------------------------------
         */
 
+
         if ($request->filled('bulan')) {
 
             $query->whereMonth(
                 'periode',
                 $request->bulan
             );
+
         }
 
 
@@ -74,12 +211,14 @@ class LayananController extends Controller
         |--------------------------------------------------------------------------
         */
 
+
         if ($request->filled('tipe_layanan')) {
 
             $query->where(
                 'tipe_layanan',
                 $request->tipe_layanan
             );
+
         }
 
 
@@ -89,12 +228,14 @@ class LayananController extends Controller
         |--------------------------------------------------------------------------
         */
 
+
         if ($request->filled('channel')) {
 
             $query->where(
                 'channel',
                 $request->channel
             );
+
         }
 
 
@@ -104,39 +245,58 @@ class LayananController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $totalTransaksi = (clone $query)
-            ->sum('transaksi');
+
+        $totalTransaksi =
+            (clone $query)
+
+                ->sum(
+                    'transaksi'
+                );
 
 
-        $totalPelanggan = (clone $query)
-            ->sum('jumlah_pelanggan');
+        $totalPelanggan =
+            (clone $query)
+
+                ->sum(
+                    'jumlah_pelanggan'
+                );
 
 
-        $totalNilai = (clone $query)
-            ->sum('nilai_transaksi');
+        $totalNilai =
+            (clone $query)
+
+                ->sum(
+                    'nilai_transaksi'
+                );
 
 
-        $totalFee = (clone $query)
-            ->sum('fee_kai');
+        $totalFee =
+            (clone $query)
+
+                ->sum(
+                    'fee_kai'
+                );
 
 
         /*
         |--------------------------------------------------------------------------
         | DATA TRANSAKSI
         |--------------------------------------------------------------------------
-        |
-        | Menggunakan pagination supaya seluruh data tetap bisa
-        | dilihat, bukan hanya 10 data terbaru.
-        |
         */
 
-        $transaksiData = (clone $query)
 
-            ->orderByDesc('periode')
+        $transaksiData =
+            (clone $query)
 
-            ->paginate(10)
+                ->orderByDesc(
+                    'periode'
+                )
 
-            ->withQueryString();
+                ->paginate(
+                    10
+                )
+
+                ->withQueryString();
 
 
         /*
@@ -144,65 +304,88 @@ class LayananController extends Controller
         | DROPDOWN TAHUN
         |--------------------------------------------------------------------------
         |
-        | Hanya tahun yang memang tersedia pada layanan tersebut.
+        | Hanya tahun dari:
+        |
+        | dataset yang sedang digunakan
+        | +
+        | layanan yang sedang dipilih
         |
         */
 
-        $tahuns = Transaksi::query()
 
-            ->where(
-                'layanan',
-                $layanan
-            )
+        $tahunQuery =
+            Transaksi::query()
 
-            ->whereNotNull(
-                'periode'
-            )
+                ->where(
+                    'layanan',
+                    $layanan
+                );
 
-            ->selectRaw(
-                'YEAR(periode) as tahun'
-            )
 
-            ->distinct()
+        if ($datasetFile) {
 
-            ->orderBy('tahun')
+            $tahunQuery->where(
+                'nama_file',
+                $datasetFile
+            );
 
-            ->pluck('tahun');
+        }
+
+
+        $tahuns =
+            $tahunQuery
+
+                ->whereNotNull(
+                    'periode'
+                )
+
+                ->selectRaw(
+                    'YEAR(periode) as tahun'
+                )
+
+                ->distinct()
+
+                ->orderBy(
+                    'tahun'
+                )
+
+                ->pluck(
+                    'tahun'
+                );
 
 
         /*
         |--------------------------------------------------------------------------
         | DROPDOWN TIPE LAYANAN
         |--------------------------------------------------------------------------
-        |
-        | Hanya tipe layanan yang berada di dalam layanan
-        | yang sedang dibuka.
-        |
         */
 
-        $tipeQuery = Transaksi::query()
 
-            ->where(
-                'layanan',
-                $layanan
-            )
+        $tipeQuery =
+            Transaksi::query()
 
-            ->whereNotNull(
-                'tipe_layanan'
-            )
+                ->where(
+                    'layanan',
+                    $layanan
+                );
 
-            ->where(
-                'tipe_layanan',
-                '!=',
-                ''
+
+        if ($datasetFile) {
+
+            $tipeQuery->where(
+                'nama_file',
+                $datasetFile
             );
+
+        }
 
 
         /*
         |--------------------------------------------------------------------------
-        | JIKA TAHUN DIPILIH
+        | FILTER TAHUN UNTUK TIPE
         |--------------------------------------------------------------------------
         */
+
 
         if ($request->filled('tahun')) {
 
@@ -210,14 +393,16 @@ class LayananController extends Controller
                 'periode',
                 $request->tahun
             );
+
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | JIKA BULAN DIPILIH
+        | FILTER BULAN UNTUK TIPE
         |--------------------------------------------------------------------------
         */
+
 
         if ($request->filled('bulan')) {
 
@@ -225,51 +410,69 @@ class LayananController extends Controller
                 'periode',
                 $request->bulan
             );
+
         }
 
 
-        $tipes = $tipeQuery
+        $tipes =
+            $tipeQuery
 
-            ->select(
-                'tipe_layanan'
-            )
+                ->whereNotNull(
+                    'tipe_layanan'
+                )
 
-            ->distinct()
+                ->where(
+                    'tipe_layanan',
+                    '!=',
+                    ''
+                )
 
-            ->orderBy(
-                'tipe_layanan'
-            )
+                ->select(
+                    'tipe_layanan'
+                )
 
-            ->pluck(
-                'tipe_layanan'
-            );
+                ->distinct()
+
+                ->orderBy(
+                    'tipe_layanan'
+                )
+
+                ->pluck(
+                    'tipe_layanan'
+                );
 
 
         /*
         |--------------------------------------------------------------------------
         | DROPDOWN CHANNEL
         |--------------------------------------------------------------------------
-        |
-        | Channel mengikuti layanan dan tipe layanan yang dipilih.
-        |
         */
 
-        $channelQuery = Transaksi::query()
 
-            ->where(
-                'layanan',
-                $layanan
-            )
+        $channelQuery =
+            Transaksi::query()
 
-            ->whereNotNull(
-                'channel'
-            )
+                ->where(
+                    'layanan',
+                    $layanan
+                );
 
-            ->where(
-                'channel',
-                '!=',
-                ''
+
+        /*
+        |--------------------------------------------------------------------------
+        | FILTER DATASET UNTUK CHANNEL
+        |--------------------------------------------------------------------------
+        */
+
+
+        if ($datasetFile) {
+
+            $channelQuery->where(
+                'nama_file',
+                $datasetFile
             );
+
+        }
 
 
         /*
@@ -278,12 +481,14 @@ class LayananController extends Controller
         |--------------------------------------------------------------------------
         */
 
+
         if ($request->filled('tahun')) {
 
             $channelQuery->whereYear(
                 'periode',
                 $request->tahun
             );
+
         }
 
 
@@ -293,20 +498,23 @@ class LayananController extends Controller
         |--------------------------------------------------------------------------
         */
 
+
         if ($request->filled('bulan')) {
 
             $channelQuery->whereMonth(
                 'periode',
                 $request->bulan
             );
+
         }
 
 
         /*
         |--------------------------------------------------------------------------
-        | FILTER TIPE UNTUK CHANNEL
+        | FILTER TIPE LAYANAN UNTUK CHANNEL
         |--------------------------------------------------------------------------
         */
+
 
         if ($request->filled('tipe_layanan')) {
 
@@ -314,62 +522,83 @@ class LayananController extends Controller
                 'tipe_layanan',
                 $request->tipe_layanan
             );
+
         }
 
 
-        $channels = $channelQuery
+        $channels =
+            $channelQuery
 
-            ->select(
-                'channel'
-            )
+                ->whereNotNull(
+                    'channel'
+                )
 
-            ->distinct()
+                ->where(
+                    'channel',
+                    '!=',
+                    ''
+                )
 
-            ->orderBy(
-                'channel'
-            )
+                ->select(
+                    'channel'
+                )
 
-            ->pluck(
-                'channel'
-            );
+                ->distinct()
+
+                ->orderBy(
+                    'channel'
+                )
+
+                ->pluck(
+                    'channel'
+                );
 
 
         /*
         |--------------------------------------------------------------------------
         | TREND TRANSAKSI
         |--------------------------------------------------------------------------
+        |
+        | Grafik hanya dari:
+        |
+        | dataset yang sedang digunakan
+        | +
+        | layanan yang dipilih
+        |
         */
 
-        $trendChart = (clone $query)
 
-            ->whereNotNull(
-                'periode'
-            )
+        $trendChart =
+            (clone $query)
 
-            ->selectRaw("
-                DATE_FORMAT(
-                    periode,
-                    '%Y-%m'
-                ) AS urut,
+                ->whereNotNull(
+                    'periode'
+                )
 
-                DATE_FORMAT(
-                    periode,
-                    '%b %Y'
-                ) AS bulan,
+                ->selectRaw("
+                    DATE_FORMAT(
+                        periode,
+                        '%Y-%m'
+                    ) AS urut,
 
-                SUM(transaksi) AS total
-            ")
+                    DATE_FORMAT(
+                        periode,
+                        '%b %Y'
+                    ) AS bulan,
 
-            ->groupBy(
-                'urut',
-                'bulan'
-            )
+                    SUM(transaksi) AS total
+                ")
 
-            ->orderBy(
-                'urut'
-            )
+                ->groupBy(
+                    'urut',
+                    'bulan'
+                )
 
-            ->get();
+                ->orderBy(
+                    'urut'
+                )
+
+                ->get();
 
 
         /*
@@ -378,26 +607,28 @@ class LayananController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $channelChart = (clone $query)
 
-            ->whereNotNull(
-                'channel'
-            )
+        $channelChart =
+            (clone $query)
 
-            ->selectRaw("
-                channel,
-                SUM(transaksi) AS total
-            ")
+                ->whereNotNull(
+                    'channel'
+                )
 
-            ->groupBy(
-                'channel'
-            )
+                ->selectRaw("
+                    channel,
+                    SUM(transaksi) AS total
+                ")
 
-            ->orderByDesc(
-                'total'
-            )
+                ->groupBy(
+                    'channel'
+                )
 
-            ->get();
+                ->orderByDesc(
+                    'total'
+                )
+
+                ->get();
 
 
         /*
@@ -406,43 +637,45 @@ class LayananController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $tipeChart = (clone $query)
 
-            ->whereNotNull(
-                'tipe_layanan'
-            )
+        $tipeChart =
+            (clone $query)
 
-            ->selectRaw("
-                tipe_layanan,
-                SUM(transaksi) AS total
-            ")
+                ->whereNotNull(
+                    'tipe_layanan'
+                )
 
-            ->groupBy(
-                'tipe_layanan'
-            )
+                ->selectRaw("
+                    tipe_layanan,
+                    SUM(transaksi) AS total
+                ")
 
-            ->orderByDesc(
-                'total'
-            )
+                ->groupBy(
+                    'tipe_layanan'
+                )
 
-            ->limit(10)
+                ->orderByDesc(
+                    'total'
+                )
 
-            ->get();
+                ->limit(
+                    10
+                )
+
+                ->get();
 
 
         /*
         |--------------------------------------------------------------------------
-        | RETURN VIEW
+        | VIEW
         |--------------------------------------------------------------------------
-        |
-        | File Blade yang kamu upload:
-        |
-        | resources/views/dashboard/layanan.blade.php
-        |
         */
 
+
         return view(
+
             'dashboard.layanan',
+
             [
 
                 /*
@@ -457,12 +690,29 @@ class LayananController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | LAYANAN AKTIF
+                | LAYANAN
                 |--------------------------------------------------------------------------
                 */
 
                 'layananTetap' =>
                     $layanan,
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | DATASET
+                |--------------------------------------------------------------------------
+                |
+                | Dataset yang sedang digunakan.
+                |
+                */
+
+                'datasetSekarang' =>
+                    $datasetSekarang,
+
+
+                'datasetAktif' =>
+                    $datasetSekarang,
 
 
                 /*
@@ -474,14 +724,45 @@ class LayananController extends Controller
                 'totalTransaksi' =>
                     $totalTransaksi,
 
+
                 'totalPelanggan' =>
                     $totalPelanggan,
+
 
                 'totalNilai' =>
                     $totalNilai,
 
+
                 'totalFee' =>
                     $totalFee,
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | DATA TRANSAKSI
+                |--------------------------------------------------------------------------
+                */
+
+                'transaksiData' =>
+                    $transaksiData,
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | DROPDOWN
+                |--------------------------------------------------------------------------
+                */
+
+                'tahuns' =>
+                    $tahuns,
+
+
+                'tipes' =>
+                    $tipes,
+
+
+                'channels' =>
+                    $channels,
 
 
                 /*
@@ -493,39 +774,16 @@ class LayananController extends Controller
                 'trendChart' =>
                     $trendChart,
 
+
                 'channelChart' =>
                     $channelChart,
+
 
                 'tipeChart' =>
                     $tipeChart,
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | FILTER
-                |--------------------------------------------------------------------------
-                */
-
-                'tahuns' =>
-                    $tahuns,
-
-                'tipes' =>
-                    $tipes,
-
-                'channels' =>
-                    $channels,
-
-
-                /*
-                |--------------------------------------------------------------------------
-                | TABLE
-                |--------------------------------------------------------------------------
-                */
-
-                'transaksiData' =>
-                    $transaksiData,
-
             ]
+
         );
     }
 }
